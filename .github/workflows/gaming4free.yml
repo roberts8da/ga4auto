@@ -11,14 +11,30 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
 
+    # 確保 token 有權限刪除舊紀錄
+    permissions:
+      actions: write
+      contents: read
+
     steps:
       # =========================
-      # 🟡 0️⃣ 当前仓库
+      # 🟡 0️⃣ 清理舊的工作流紀錄 (只保留最近 3 個)
+      # =========================
+      - name: Delete old workflow runs
+        uses: Mattraiano/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 3
+
+      # =========================
+      # 🟡 1️⃣ 當前倉庫
       # =========================
       - uses: actions/checkout@v4
 
       # =========================
-      # 🟡 ⭐ 私有仓库
+      # 🟡 ⭐ 私有倉庫
       # =========================
       - name: Checkout private repo
         uses: actions/checkout@v4
@@ -28,7 +44,7 @@ jobs:
           path: scripts
 
       # =========================
-      # 🟡 Node环境
+      # 🟡 Node環境
       # =========================
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -36,16 +52,16 @@ jobs:
           node-version: 20
 
       # =========================
-      # 🟡 1️⃣ WARP
+      # 🟡 2️⃣ WARP
       # =========================
-      - name: 创建WARP网络
+      - name: 創建WARP網路
         uses: fscarmen/warp-on-actions@v1.3
         with:
           stack: dual
           mode: client
 
       # =========================
-      # 🟡 2️⃣ 系统依赖（音频）
+      # 🟡 3️⃣ 系統依賴（音訊）
       # =========================
       - name: Install deps
         run: |
@@ -62,7 +78,7 @@ jobs:
           pactl set-default-source virtual_mic || true
 
       # =========================
-      # 🟡 3️⃣ 安装 Playwright（修复点）
+      # 🟡 4️⃣ 安裝 Playwright
       # =========================
       - name: Install playwright
         run: |
@@ -71,7 +87,7 @@ jobs:
           npx playwright install chromium
 
       # =========================
-      # 🟡 4️⃣ 下载 Buster
+      # 🟡 5️⃣ 下載 Buster
       # =========================
       - name: Download Buster
         run: |
@@ -84,21 +100,21 @@ jobs:
           mkdir -p scripts/extensions/buster/unpacked
           7z x -y scripts/extensions/buster/buster.zip -oscripts/extensions/buster/unpacked
 
-          echo "📦 Buster 解压完成"
+          echo "📦 Buster 解壓完成"
           ls -R scripts/extensions/buster/unpacked | head -50
 
       # =========================
-      # 🟡 5️⃣ 调试 IP
+      # 🟡 6️⃣ 調試 IP
       # =========================
       - name: Check IP
         run: |
-          echo "🌍 当前 IP:"
+          echo "🌍 當前 IP:"
           curl -s https://api.ipify.org
           echo
           curl -s https://ipinfo.io
 
       # =========================
-      # 🟡 6️⃣ 运行脚本
+      # 🟡 7️⃣ 運行腳本
       # =========================
       - name: Run script
         run: |
@@ -106,7 +122,7 @@ jobs:
           xvfb-run -a node scripts/renew.js
 
       # =========================
-      # 🟡 7️⃣ 上传截图
+      # 🟡 8️⃣ 上傳截圖
       # =========================
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
