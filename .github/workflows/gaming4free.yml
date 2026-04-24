@@ -4,52 +4,21 @@ on:
   workflow_dispatch:
 
   schedule:
-    - cron: "0 * * * *"  # 🕕 每小時整點執行一次 (UTC)
+    - cron: "40 * * * *"   # 🕕 每天18:00（UTC）
 
 jobs:
   run:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
 
-    # 確保 token 有權限刪除舊紀錄
-    permissions:
-      actions: write
-      contents: read
-
     steps:
       # =========================
-      # 🟡 0️⃣ 清理舊的工作流紀錄 (只保留最近 3 個)
-      # =========================
-      - name: Delete old workflow runs
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const runs = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'gaming4free-renew-warp.yml', // 確保這裡對應你的檔名
-              per_page: 100
-            });
-            
-            const runsToDelete = runs.data.workflow_runs
-              .slice(3); // 保留前 3 個，其餘刪除
-            
-            for (const run of runsToDelete) {
-              await github.rest.actions.deleteWorkflowRun({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                run_id: run.id
-              });
-              console.log(`Deleted run ${run.id}`);
-            }
-
-      # =========================
-      # 🟡 1️⃣ 當前倉庫
+      # 🟡 0️⃣ 当前仓库
       # =========================
       - uses: actions/checkout@v4
 
       # =========================
-      # 🟡 ⭐ 私有倉庫
+      # 🟡 ⭐ 私有仓库
       # =========================
       - name: Checkout private repo
         uses: actions/checkout@v4
@@ -59,7 +28,7 @@ jobs:
           path: scripts
 
       # =========================
-      # 🟡 Node環境
+      # 🟡 Node环境
       # =========================
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -67,16 +36,16 @@ jobs:
           node-version: 20
 
       # =========================
-      # 🟡 2️⃣ WARP
+      # 🟡 1️⃣ WARP
       # =========================
-      - name: 創建WARP網路
+      - name: 创建WARP网络
         uses: fscarmen/warp-on-actions@v1.3
         with:
           stack: dual
           mode: client
 
       # =========================
-      # 🟡 3️⃣ 系統依賴（音訊）
+      # 🟡 2️⃣ 系统依赖（音频）
       # =========================
       - name: Install deps
         run: |
@@ -93,7 +62,7 @@ jobs:
           pactl set-default-source virtual_mic || true
 
       # =========================
-      # 🟡 4️⃣ 安裝 Playwright
+      # 🟡 3️⃣ 安装 Playwright（修复点）
       # =========================
       - name: Install playwright
         run: |
@@ -102,7 +71,7 @@ jobs:
           npx playwright install chromium
 
       # =========================
-      # 🟡 5️⃣ 下載 Buster
+      # 🟡 4️⃣ 下载 Buster
       # =========================
       - name: Download Buster
         run: |
@@ -115,21 +84,21 @@ jobs:
           mkdir -p scripts/extensions/buster/unpacked
           7z x -y scripts/extensions/buster/buster.zip -oscripts/extensions/buster/unpacked
 
-          echo "📦 Buster 解壓完成"
+          echo "📦 Buster 解压完成"
           ls -R scripts/extensions/buster/unpacked | head -50
 
       # =========================
-      # 🟡 6️⃣ 調試 IP
+      # 🟡 5️⃣ 调试 IP
       # =========================
       - name: Check IP
         run: |
-          echo "🌍 當前 IP:"
+          echo "🌍 当前 IP:"
           curl -s https://api.ipify.org
           echo
           curl -s https://ipinfo.io
 
       # =========================
-      # 🟡 7️⃣ 運行腳本
+      # 🟡 6️⃣ 运行脚本
       # =========================
       - name: Run script
         run: |
@@ -137,7 +106,7 @@ jobs:
           xvfb-run -a node scripts/renew.js
 
       # =========================
-      # 🟡 8️⃣ 上傳截圖
+      # 🟡 7️⃣ 上传截图
       # =========================
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
@@ -146,3 +115,15 @@ jobs:
           name: screenshots
           path: scripts/screenshots/**
           if-no-files-found: warn
+
+      # =========================
+      # 🟡 8️⃣ 🧹 清理舊的工作流運行記錄
+      # =========================
+      - name: Delete old workflow runs
+        uses: MajorScruffy/delete-old-workflow-runs@v0.3.0
+        if: always() # 確保前面的步驟失敗也會執行清理
+        with:
+          repository: ${{ github.repository }}
+          keep-last: 3
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
