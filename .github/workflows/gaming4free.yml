@@ -21,12 +21,27 @@ jobs:
       # 🟡 0️⃣ 清理舊的工作流紀錄 (只保留最近 3 個)
       # =========================
       - name: Delete old workflow runs
-        uses: Mattraiano/delete-workflow-runs@v2
+        uses: actions/github-script@v7
         with:
-          token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          retain_days: 0
-          keep_minimum_runs: 3
+          script: |
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'gaming4free-renew-warp.yml', // 確保這裡對應你的檔名
+              per_page: 100
+            });
+            
+            const runsToDelete = runs.data.workflow_runs
+              .slice(3); // 保留前 3 個，其餘刪除
+            
+            for (const run of runsToDelete) {
+              await github.rest.actions.deleteWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id
+              });
+              console.log(`Deleted run ${run.id}`);
+            }
 
       # =========================
       # 🟡 1️⃣ 當前倉庫
