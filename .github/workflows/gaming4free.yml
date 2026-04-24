@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
   schedule:
-    - cron: "40 * * * *"   # 🕕 每天18:00（UTC）
+    - cron: "40 * * * *"   #
 
 jobs:
   run:
@@ -116,14 +116,11 @@ jobs:
           path: scripts/screenshots/**
           if-no-files-found: warn
 
-      # =========================
-      # 🟡 8️⃣ 🧹 清理舊的工作流運行記錄
-      # =========================
       - name: Delete old workflow runs
-        uses: MajorScruffy/delete-old-workflow-runs@v0.3.0
-        if: always() # 確保前面的步驟失敗也會執行清理
+        uses: Mattraks/delete-workflow-runs@v2
+        if: always()
         with:
+          token: ${{ github.token }}
           repository: ${{ github.repository }}
-          keep-last: 3
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          retain_days: 0 
+          keep_minimum_runs: 2
