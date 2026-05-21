@@ -4,21 +4,22 @@ on:
   workflow_dispatch:
 
   schedule:
-    - cron: "40 * * * *"   # 🕕 每天18:00（UTC）
+    # 🕕 每小時執行一次
+    - cron: "0 * * * *"
 
 jobs:
   run:
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 5 # 流程簡化後，超時時間從 15 分鐘縮短至 5 分鐘，更安全
 
     steps:
       # =========================
-      # 🟡 0️⃣ 当前仓库
+      # 🟡 0️⃣ 當前倉庫
       # =========================
       - uses: actions/checkout@v4
 
       # =========================
-      # 🟡 ⭐ 私有仓库
+      # 🟡 ⭐ 私有倉庫
       # =========================
       - name: Checkout private repo
         uses: actions/checkout@v4
@@ -28,7 +29,7 @@ jobs:
           path: scripts
 
       # =========================
-      # 🟡 Node环境
+      # 🟡 Node環境
       # =========================
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -36,77 +37,44 @@ jobs:
           node-version: 20
 
       # =========================
-      # 🟡 1️⃣ WARP
+      # 🟡 1️⃣ WARP 網路 (保留，防止網站擋 GitHub 機房 IP)
       # =========================
-      - name: 创建WARP网络
+      - name: 創建WARP網絡
         uses: fscarmen/warp-on-actions@v1.3
         with:
           stack: dual
           mode: client
 
       # =========================
-      # 🟡 2️⃣ 系统依赖（音频）
-      # =========================
-      - name: Install deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb wget unzip curl jq p7zip-full \
-            pulseaudio alsa-utils ffmpeg
-
-          pulseaudio --start --exit-idle-time=-1 || true
-
-          pactl load-module module-null-sink sink_name=virtual_speaker || true
-          pactl set-default-sink virtual_speaker || true
-
-          pactl load-module module-virtual-source source_name=virtual_mic || true
-          pactl set-default-source virtual_mic || true
-
-      # =========================
-      # 🟡 3️⃣ 安装 Playwright（修复点）
-      # =========================
-      - name: Install playwright
-        run: |
-          npm init -y
-          npm install playwright
-          npx playwright install chromium
-
-      # =========================
-      # 🟡 4️⃣ 下载 Buster
-      # =========================
-      - name: Download Buster
-        run: |
-          mkdir -p scripts/extensions/buster
-          wget -O scripts/extensions/buster/buster.zip \
-            https://github.com/dessant/buster/releases/download/v3.1.0/buster_captcha_solver_for_humans-3.1.0-chrome.zip
-
-      - name: Unzip Buster
-        run: |
-          mkdir -p scripts/extensions/buster/unpacked
-          7z x -y scripts/extensions/buster/buster.zip -oscripts/extensions/buster/unpacked
-
-          echo "📦 Buster 解压完成"
-          ls -R scripts/extensions/buster/unpacked | head -50
-
-      # =========================
-      # 🟡 5️⃣ 调试 IP
+      # 🟡 2️⃣ 偵錯 IP
       # =========================
       - name: Check IP
         run: |
-          echo "🌍 当前 IP:"
+          echo "🌍 當前 IP:"
           curl -s https://api.ipify.org
           echo
           curl -s https://ipinfo.io
 
       # =========================
-      # 🟡 6️⃣ 运行脚本
+      # 🟡 3️⃣ 安裝 Playwright（已刪除音訊與圖形依賴）
+      # =========================
+      - name: Install playwright
+        run: |
+          npm init -y
+          npm install playwright
+          # 使用 headless 模式只需要安裝基礎的 chromium，不需要安裝繁重的系統圖形依賴
+          npx playwright install chromium
+
+      # =========================
+      # 🟡 4️⃣ 運行腳本 (已移除 xvfb-run，直接原生執行)
       # =========================
       - name: Run script
         run: |
           mkdir -p scripts/screenshots
-          xvfb-run -a node scripts/renew.js
+          node scripts/renew.js
 
       # =========================
-      # 🟡 7️⃣ 上传截图
+      # 🟡 5️⃣ 上傳截圖
       # =========================
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
