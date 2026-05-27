@@ -2,7 +2,6 @@ name: gaming4free renew (WARP)
 
 on:
   workflow_dispatch:
-
   schedule:
     # 🕕 每小時執行一次
     - cron: "0 * * * *"
@@ -10,17 +9,12 @@ on:
 jobs:
   run:
     runs-on: ubuntu-22.04
-    timeout-minutes: 5 # 流程簡化後，超時時間從 15 分鐘縮短至 5 分鐘，更安全
+    # 因为 5 秒盾会增加等待时间，建议将超时恢复到 10 分钟比较稳妥
+    timeout-minutes: 10 
 
     steps:
-      # =========================
-      # 🟡 0️⃣ 當前倉庫
-      # =========================
       - uses: actions/checkout@v4
 
-      # =========================
-      # 🟡 ⭐ 私有倉庫
-      # =========================
       - name: Checkout private repo
         uses: actions/checkout@v4
         with:
@@ -28,58 +22,44 @@ jobs:
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
           path: scripts
 
-      # =========================
-      # 🟡 Node環境
-      # =========================
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # =========================
-      # 🟡 1️⃣ WARP 網路 (保留，防止網站擋 GitHub 機房 IP)
-      # =========================
       - name: 創建WARP網絡
         uses: fscarmen/warp-on-actions@v1.3
         with:
           stack: dual
           mode: client
 
-      # =========================
-      # 🟡 2️⃣ 偵錯 IP
-      # =========================
       - name: Check IP
         run: |
           echo "🌍 當前 IP:"
-          curl -s https://api.ipify.org
-          echo
-          curl -s https://ipinfo.io
+          curl -s https://api.ipify.org || echo "failed"
 
-      # =========================
-      # 🟡 3️⃣ 安裝 Playwright（已刪除音訊與圖形依賴）
-      # =========================
-      - name: Install playwright
+      # =======================================================
+      # 🛠️ 关键修改点：安装 Stealth 插件和 Playwright 依赖
+      # =======================================================
+      - name: Install dependencies
         run: |
+          cd scripts
           npm init -y
-          npm install playwright
-          # 使用 headless 模式只需要安裝基礎的 chromium，不需要安裝繁重的系統圖形依賴
-          npx playwright install chromium
+          # 必须安装这几个包来支持混淆伪装
+          npm install playwright-extra puppeteer-extra-plugin-stealth playwright
+          # 安装 chromium 以及运行它所需的系统库（Actions 环境必须安装系统依赖）
+          npx playwright install --with-deps chromium
 
-      # =========================
-      # 🟡 4️⃣ 運行腳本 (已移除 xvfb-run，直接原生執行)
-      # =========================
       - name: Run script
         run: |
           mkdir -p scripts/screenshots
+          # 执行脚本
           node scripts/renew.js
 
-      # =========================
-      # 🟡 5️⃣ 上傳截圖
-      # =========================
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: screenshots
           path: scripts/screenshots/**
-          if-no-files-found: warn
+          retention-days: 3 # 节省空间，截图保留3天即可
