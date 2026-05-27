@@ -1,65 +1,77 @@
-name: gaming4free renew (WARP)
+name: G4F-AddTime
 
 on:
   workflow_dispatch:
   schedule:
-    # 🕕 每小時執行一次
-    - cron: "0 * * * *"
+    - cron: '0 */2 * * *'
+
+permissions:
+  contents: write
 
 jobs:
-  run:
-    runs-on: ubuntu-22.04
-    # 因为 5 秒盾会增加等待时间，建议将超时恢复到 10 分钟比较稳妥
-    timeout-minutes: 10 
+  addtime:
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
 
-      - name: Checkout private repo
+      - name: Checkout Private Repo
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository_owner }}/gaming4free-auto
           token: ${{ secrets.PRIVATE_REPO_TOKEN }}
-          path: scripts
+          fetch-depth: 0
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: 20
+          python-version: '3.11'
 
-      - name: 創建WARP網絡
-        uses: fscarmen/warp-on-actions@v1.3
-        with:
-          stack: dual
-          mode: client
-
-      - name: Check IP
+      - name: Install Linux Dependencies
         run: |
-          echo "🌍 當前 IP:"
-          curl -s https://api.ipify.org || echo "failed"
+          sudo apt-get update -qq
 
-      # =======================================================
-      # 🛠️ 关键修改点：安装 Stealth 插件和 Playwright 依赖
-      # =======================================================
-      - name: Install dependencies
+          sudo apt-get install -y -qq \
+            xvfb \
+            libgbm1 \
+            libnss3 \
+            libatk1.0-0 \
+            libcups2 \
+            libdrm2 \
+            libxkbcommon0
+
+      - name: Install Python Dependencies
         run: |
-          cd scripts
-          npm init -y
-          # 必须安装这几个包来支持混淆伪装
-          npm install playwright-extra puppeteer-extra-plugin-stealth playwright
-          # 安装 chromium 以及运行它所需的系统库（Actions 环境必须安装系统依赖）
-          npx playwright install --with-deps chromium
+          pip install -U pip
+          pip install -r requirements.txt
 
-      - name: Run script
+      - name: Run Script
+        env:
+          DISPLAY: :99
         run: |
-          mkdir -p scripts/screenshots
-          # 执行脚本
-          node scripts/renew.js
+          Xvfb :99 -screen 0 1920x1080x24 &
 
-      - name: Upload screenshots
-        uses: actions/upload-artifact@v4
+          python g4f.py
+
+      - name: Commit Logs + Screenshots
         if: always()
+        run: |
+
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git add README.md *.png || true
+
+          git commit -m "update g4f result [skip ci]" || echo "No changes"
+
+          git push origin HEAD || echo "Push failed"
+
+      - name: Upload Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: screenshots
-          path: scripts/screenshots/**
-          retention-days: 3 # 节省空间，截图保留3天即可
+          name: g4f-results
+          path: |
+            *.png
